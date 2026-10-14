@@ -21,7 +21,11 @@ type PokemonSkills = Record<PokemonSkillNames, number>
 type PokemonSocialAttributeName = 'tough' | 'cool' | 'beauty' | 'cute' | 'clever'
 type PokemonSocialAttributes = Record<PokemonSocialAttributeName, number>
 
-type PokemonRollStat = PokemonSkillNames | PokemonAttributeName | PokemonSocialAttributeName
+type PokemonResourceName = 'will'
+
+type PokemonResources = Record<PokemonResourceName, number>
+
+type PokemonRollStat = PokemonSkillNames | PokemonAttributeName | PokemonSocialAttributeName | PokemonResourceName
 
 type PokemonType =
   | 'normal'
@@ -191,15 +195,32 @@ function getPokemonSocialAttributes(): PokemonSocialAttributes | void {
   return pokemonSocialAttributes
 }
 
-function addInterfaceButtons(): void {
-  const movesDivs = document.querySelectorAll('div.flex.flex-col.flex-grow.rounded-3xl.overflow-hidden.justify-center')
+function getPokemonResources(): PokemonResources | void {
+  const willLabelContainer = getParentElementFromChildLabel('Will')
 
-  Array.from(movesDivs).map((move) => {
-    // Be defensive about generating buttons
-    if (move.querySelector('.pokeroll-button')) return
-    const rollButtonContainer = generateMoveRollButton()
-    move.appendChild(rollButtonContainer)
-  })
+  if (!willLabelContainer) {
+    console.error('No Will container found')
+    return
+  }
+
+  const resourceContainer = willLabelContainer.parentElement?.parentElement
+  const maxNode = resourceContainer?.children[1]?.children[0]
+
+  if (!maxNode?.textContent) {
+    console.error('Could not find Will maximum')
+    return
+  }
+
+  const maxWill = Number(maxNode.textContent.split('Max:')?.[1]?.trim())
+
+  if (Number.isNaN(maxWill)) {
+    console.error('Could not parse Will maximum')
+    return
+  }
+
+  return {
+    will: maxWill,
+  }
 }
 
 function getPokemonMoveset(): PokemonMove[] | void {
@@ -230,13 +251,14 @@ function getPokemonMoveset(): PokemonMove[] | void {
   const socialAttributes = getPokemonSocialAttributes()
   const attributes = getPokemonAttributes()
   const skills = getPokemonSkills()
+  const resources = getPokemonResources()
 
-  if (!skills || !attributes || !socialAttributes) {
+  if (!skills || !attributes || !socialAttributes || !resources) {
     console.error('Could not find Pokemon stats correctly when checking for moveset')
     return
   }
 
-  const allAttributes = { ...socialAttributes, ...attributes, ...skills }
+  const allAttributes = { ...socialAttributes, ...attributes, ...skills, ...resources }
 
   const formattedMoves: PokemonMove[] = []
   const moves = Array.from(document.querySelectorAll(pokemonTypeSelector))
@@ -286,7 +308,10 @@ function getParentElementFromChildLabel(textToFind: string) {
 
 function calculateMoveAccuracyDie(
   accuracy: string,
-  attributes: Record<PokemonSkillNames | PokemonAttributeName | PokemonSocialAttributeName, number>
+  attributes: Record<
+    PokemonSkillNames | PokemonAttributeName | PokemonSocialAttributeName | PokemonResourceName,
+    number
+  >
 ): number {
   const [firstAttribute, secondAttribute] = accuracy.split('+')
 
@@ -311,8 +336,11 @@ function calculateMoveAccuracyDie(
 }
 
 function getIdealAttribute(
-  attribute: PokemonSkillNames | PokemonAttributeName | PokemonSocialAttributeName,
-  attributes: Record<PokemonSkillNames | PokemonAttributeName | PokemonSocialAttributeName, number>
+  attribute: PokemonSkillNames | PokemonAttributeName | PokemonSocialAttributeName | PokemonResourceName,
+  attributes: Record<
+    PokemonSkillNames | PokemonAttributeName | PokemonSocialAttributeName | PokemonResourceName,
+    number
+  >
 ): number {
   if (attribute?.includes('/')) {
     const [optionOne, optionTwo] = attribute.trim().split('/')
@@ -334,7 +362,10 @@ function getIdealAttribute(
 function calculateMoveDamageDie(
   damage: string,
   hasStabBonus: boolean,
-  attributes: Record<PokemonSkillNames | PokemonAttributeName | PokemonSocialAttributeName, number>
+  attributes: Record<
+    PokemonSkillNames | PokemonAttributeName | PokemonSocialAttributeName | PokemonResourceName,
+    number
+  >
 ) {
   const [firstAttribute, secondAttribute] = damage.split('+')
 
@@ -413,6 +444,18 @@ function generateMoveRollButton() {
   return containerDiv
 }
 
+function addInterfaceButtons(): void {
+  // This is just the classes on the moves divs inside Pokeroll - this could break quite easily if this were to change...
+  const movesDivs = document.querySelectorAll('div.flex.flex-col.flex-grow.rounded-3xl.overflow-hidden.justify-center')
+
+  Array.from(movesDivs).map((move) => {
+    // Be defensive about generating buttons
+    if (move.querySelector('.pokeroll-button')) return
+    const rollButtonContainer = generateMoveRollButton()
+    move.appendChild(rollButtonContainer)
+  })
+}
+
 function isPokemonRollStat(value: string): value is PokemonRollStat {
   const pokemonRollStats: PokemonRollStat[] = [
     'strength',
@@ -437,6 +480,7 @@ function isPokemonRollStat(value: string): value is PokemonRollStat {
     'etiquette',
     'intimidate',
     'perform',
+    'will',
   ]
 
   if (value.includes('/')) {
