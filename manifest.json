@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "Pokeroll",
+  "version": "0.0.1",
+  "description": "Integrates PokeRoleDex and Roll20, allowing you to roll attacks directly from PokeRoleDex",
+
+  "background": {
+    "service_worker": "build/background.js"
+  },
+
+  "host_permissions": ["https://app.roll20.net/*"],
+
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["https://pokeroledex.nl/*"],
+      "js": ["build/pokeroledex.js"]
+    },
+    {
+      "matches": ["https://app.roll20.net/*"],
+      "js": ["build/roll20.js"]
+    }
+  ]
+}
