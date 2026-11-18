@@ -49,8 +49,8 @@ type PokemonType =
 
 type PokemonMove = { name: string; type: string; accuracy: number; damage: number; effects: string }
 
-function getPokemonAttributes(): PokemonAttributes | void {
-  const attributeListContainer = getParentElementFromChildLabel('Attributes')
+function getPokemonAttributes(sheet: Element): PokemonAttributes | void {
+  const attributeListContainer = getParentElementFromChildLabel(sheet, 'Attributes')
 
   if (!attributeListContainer) return console.error('No attribute box found')
 
@@ -89,8 +89,8 @@ function getPokemonAttributes(): PokemonAttributes | void {
   return pokemonAttributes
 }
 
-function getPokemonSkills(): PokemonSkills | void {
-  const skillsListContainer = getParentElementFromChildLabel('Skills')
+function getPokemonSkills(sheet: Element): PokemonSkills | void {
+  const skillsListContainer = getParentElementFromChildLabel(sheet, 'Skills')
 
   if (!skillsListContainer) return console.error('No attribute box found')
 
@@ -154,8 +154,8 @@ function getPokemonSkills(): PokemonSkills | void {
   return pokemonSkills
 }
 
-function getPokemonSocialAttributes(): PokemonSocialAttributes | void {
-  const socialListContainer = getParentElementFromChildLabel('Socials')
+function getPokemonSocialAttributes(sheet: Element): PokemonSocialAttributes | void {
+  const socialListContainer = getParentElementFromChildLabel(sheet, 'Socials')
 
   if (!socialListContainer) return console.error('No social attribute box found')
 
@@ -195,15 +195,15 @@ function getPokemonSocialAttributes(): PokemonSocialAttributes | void {
   return pokemonSocialAttributes
 }
 
-function getPokemonResources(): PokemonResources | void {
-  const willLabelContainer = getParentElementFromChildLabel('Will')
+function getPokemonResources(sheet: Element): PokemonResources | void {
+  const willLabelContainer = getParentElementFromChildLabel(sheet, 'Will')
 
   if (!willLabelContainer) {
     console.error('No Will container found')
     return
   }
 
-  const resourceContainer = willLabelContainer.parentElement?.parentElement
+  const resourceContainer = willLabelContainer.parentElement
   const maxNode = resourceContainer?.children[1]?.children[0]
 
   if (!maxNode?.textContent) {
@@ -223,7 +223,7 @@ function getPokemonResources(): PokemonResources | void {
   }
 }
 
-function getPokemonMoveset(): PokemonMove[] | void {
+function getPokemonMoveset(sheet: Element): PokemonMove[] | void {
   // Pokeroledex doesn't have a container with id for moves
   // A distinguisher I could see is that the extended moves have a lighter version of the type
   // that seems to be exclusive to them. Here's hoping.
@@ -248,10 +248,10 @@ function getPokemonMoveset(): PokemonMove[] | void {
     '.bg-type-fairy-light',
   ].join(', ')
 
-  const socialAttributes = getPokemonSocialAttributes()
-  const attributes = getPokemonAttributes()
-  const skills = getPokemonSkills()
-  const resources = getPokemonResources()
+  const socialAttributes = getPokemonSocialAttributes(sheet)
+  const attributes = getPokemonAttributes(sheet)
+  const skills = getPokemonSkills(sheet)
+  const resources = getPokemonResources(sheet)
 
   if (!skills || !attributes || !socialAttributes || !resources) {
     console.error('Could not find Pokemon stats correctly when checking for moveset')
@@ -261,7 +261,7 @@ function getPokemonMoveset(): PokemonMove[] | void {
   const allAttributes = { ...socialAttributes, ...attributes, ...skills, ...resources }
 
   const formattedMoves: PokemonMove[] = []
-  const moves = Array.from(document.querySelectorAll(pokemonTypeSelector))
+  const moves = Array.from(sheet.querySelectorAll(pokemonTypeSelector))
   moves.forEach((moveContainer) => {
     const moveHeaderContainer = moveContainer.parentElement?.children[0]
     const nameContainer = moveHeaderContainer?.children[0]?.children[0]
@@ -280,7 +280,7 @@ function getPokemonMoveset(): PokemonMove[] | void {
 
     if (!typeContent || !accuracyContent || !effectsContent) return
 
-    const pokemonType = getPokemonTypes()
+    const pokemonType = getPokemonTypes(sheet)
     const lowercaseTypeContent = typeContent.toLowerCase()
     const hasStabBonus = isPokemonType(lowercaseTypeContent) && pokemonType.includes(lowercaseTypeContent)
 
@@ -299,8 +299,8 @@ function getPokemonMoveset(): PokemonMove[] | void {
 
 // Utility to get a specific container based on some text it may contain
 // Should work for attributes, social and skills
-function getParentElementFromChildLabel(textToFind: string) {
-  const allParagraphs = Array.from(document.querySelectorAll('p'))
+function getParentElementFromChildLabel(sheet: Element, textToFind: string) {
+  const allParagraphs = Array.from(sheet.querySelectorAll('p'))
   const attributeParagraph = allParagraphs.find((node) => node.textContent === textToFind)
   const attributeListContainer = attributeParagraph?.parentElement
   return attributeListContainer
@@ -336,19 +336,23 @@ function calculateMoveAccuracyDie(
 }
 
 function getIdealAttribute(
-  attribute: PokemonSkillNames | PokemonAttributeName | PokemonSocialAttributeName | PokemonResourceName,
+  attribute: PokemonSkillNames | PokemonAttributeName | PokemonSocialAttributeName | PokemonResourceName | 'allure',
   attributes: Record<
     PokemonSkillNames | PokemonAttributeName | PokemonSocialAttributeName | PokemonResourceName,
     number
   >
 ): number {
   if (attribute?.includes('/')) {
-    const [optionOne, optionTwo] = attribute.trim().split('/')
+    let [optionOne, optionTwo] = attribute.trim().split('/')
 
     if (!optionOne || !optionTwo) {
       console.error('Something went wrong splitting the accuracy')
       return 0
     }
+
+    // Issue with Pokeroledex where charm is wrongly reported as allure
+    if (optionOne === 'allure') optionOne = 'charm'
+    if (optionTwo === 'allure') optionOne = 'charm'
 
     const optionOneValue = attributes[optionOne.trim().toLowerCase() as PokemonRollStat]
     const optionTwoValue = attributes[optionTwo.trim().toLowerCase() as PokemonRollStat]
@@ -356,6 +360,7 @@ function getIdealAttribute(
     return Math.max(optionOneValue, optionTwoValue)
   }
 
+  if (attribute === 'allure') return attributes['charm']
   return attributes[attribute]
 }
 
@@ -391,8 +396,8 @@ function calculateMoveDamageDie(
   return idealFirstAttribute + Number(secondAttribute) + (hasStabBonus ? 1 : 0)
 }
 
-function getPokemonTypes(): PokemonType[] {
-  const typeContainer = getParentElementFromChildLabel('Type:')
+function getPokemonTypes(sheet: Element): PokemonType[] {
+  const typeContainer = getParentElementFromChildLabel(sheet, 'Type:')
 
   if (!typeContainer) {
     console.error('No Pokémon type container found')
@@ -404,16 +409,52 @@ function getPokemonTypes(): PokemonType[] {
     .filter((type): type is PokemonType => !!type && isPokemonType(type))
 }
 
-function generateMoveRollButton() {
-  const containerDiv = document.createElement('div')
-  containerDiv.classList = 'flex justify-center items-center py-2'
+function getNameLabel(sheet: Element) {
+  return Array.from(sheet.querySelectorAll('p')).find((label) => /^Name:\s*\S/i.test(label.textContent.trim()))
+}
 
-  const rollButton = document.createElement('button')
-  rollButton.textContent = 'Display in VTT'
-  rollButton.classList =
+function getRollerName(sheet: Element) {
+  return getNameLabel(sheet)
+    ?.textContent.trim()
+    .replace(/^Name:\s*/i, '')
+}
+
+function createRollButton(label: string) {
+  const button = document.createElement('button')
+  button.type = 'button'
+  button.textContent = label
+  button.className =
     'inline-flex items-center justify-center whitespace-nowrap font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 font-square text-md bg-attributes-blue text-primary-foreground hover:bg-attributes-blue-dark px-3 py-2 rounded-3xl pokeroll-button'
-  rollButton.addEventListener('click', (e: PointerEvent) => {
-    const clickedButton = e.target as HTMLButtonElement
+  return button
+}
+
+const audienceStorageKey = 'pokeroll.gmOnly'
+let isRollForGm = sessionStorage.getItem(audienceStorageKey) === 'true'
+
+function renderAudienceToggle(button: HTMLButtonElement) {
+  button.textContent = isRollForGm ? 'Rolls: GM only' : 'Rolls: Public'
+  button.classList.toggle('bg-pokerole-green', !isRollForGm)
+  button.classList.toggle('bg-pokerole-yellow', isRollForGm)
+  button.setAttribute('aria-pressed', String(isRollForGm))
+}
+
+function createAudienceToggle() {
+  const button = createRollButton('')
+  button.classList.remove('bg-attributes-blue', 'hover:bg-attributes-blue-dark', 'text-primary-foreground')
+  button.classList.add('pokeroll-audience', 'text-pokerole-black')
+  button.setAttribute('aria-label', 'Send rolls to GM only')
+  renderAudienceToggle(button)
+  button.addEventListener('click', () => {
+    isRollForGm = !isRollForGm
+    sessionStorage.setItem(audienceStorageKey, String(isRollForGm))
+    document.querySelectorAll<HTMLButtonElement>('.pokeroll-audience').forEach(renderAudienceToggle)
+  })
+  return button
+}
+
+function generateMoveRollButton(sheet: Element) {
+  const clickedButton = createRollButton('Display in VTT')
+  clickedButton.addEventListener('click', () => {
     const moveContainer = clickedButton.parentElement?.parentElement?.children[0]
     if (!moveContainer) return
 
@@ -421,7 +462,7 @@ function generateMoveRollButton() {
     const nameContainer = moveHeaderContainer?.children[0]?.children[0]
     const moveNameContent = nameContainer?.textContent
 
-    const moves = getPokemonMoveset()
+    const moves = getPokemonMoveset(sheet)
     if (!moves) {
       console.error('Moves could not be found when clicking button')
       return
@@ -429,8 +470,10 @@ function generateMoveRollButton() {
     const clickedMove = moves.find((move) => move.name === moveNameContent)
     if (clickedMove)
       chrome.runtime.sendMessage({
-        type: 'POKEMON_MOVE',
+        type: 'POKEROLEDEX-MOVE',
+        isRollForGm,
         payload: {
+          pokemonName: getRollerName(sheet),
           name: clickedMove.name || 'Unnamed move',
           accuracy: clickedMove?.accuracy || 0,
           damage: clickedMove?.damage || 0,
@@ -439,20 +482,21 @@ function generateMoveRollButton() {
       })
   })
 
-  containerDiv.appendChild(rollButton)
-
-  return containerDiv
+  return clickedButton
 }
 
-function addInterfaceButtons(): void {
+function addInterfaceButtons(sheet: Element): void {
   // This is just the classes on the moves divs inside Pokeroll - this could break quite easily if this were to change...
-  const movesDivs = document.querySelectorAll('div.flex.flex-col.flex-grow.rounded-3xl.overflow-hidden.justify-center')
+  const movesDivs = sheet.querySelectorAll('div.flex.flex-col.flex-grow.rounded-3xl.overflow-hidden.justify-center')
 
-  Array.from(movesDivs).map((move) => {
-    // Be defensive about generating buttons
-    if (move.querySelector('.pokeroll-button')) return
-    const rollButtonContainer = generateMoveRollButton()
-    move.appendChild(rollButtonContainer)
+  movesDivs.forEach((move) => {
+    if (move.querySelector('.pokeroll-move-controls')) return
+    // Replace controls left in an open sheet by the previous extension version.
+    move.querySelectorAll('button.pokeroll-button').forEach((button) => button.remove())
+    const controls = document.createElement('div')
+    controls.className = 'pokeroll-move-controls flex gap-2 justify-center items-center py-2'
+    controls.appendChild(generateMoveRollButton(sheet))
+    move.appendChild(controls)
   })
 }
 
@@ -515,24 +559,81 @@ function isPokemonType(value: string): value is PokemonType {
   return pokemonTypes.has(value)
 }
 
-const websiteBody = document.querySelector('body')
-const observerConfig = { childList: true, subtree: true }
+// Vector adaptations of the Pokémon HOME category symbols in Bulbagarden Archives:
+// https://bulbapedia.bulbagarden.net/wiki/File:Physical_icon_HOME.png
+// https://bulbapedia.bulbagarden.net/wiki/File:Special_icon_HOME.png
+const clashIconPaths = {
+  physical:
+    'M33 9 52 1 44 12 65 8 48 20 62 24 46 28 51 38 36 34 30 50 24 37 10 46 18 32 1 32 14 23 2 14 20 16 15 5 29 11 31 1Z',
+  special: [
+    'M33 5a28 19 0 1 1 0 38 28 19 0 1 1 0-38Z',
+    'M33 9a24 15 0 1 1 0 30 24 15 0 1 1 0-30Z',
+    'M33 12a18 12 0 1 1 0 24 18 12 0 1 1 0-24Z',
+    'M33 16a14 8 0 1 1 0 16 14 8 0 1 1 0-16Z',
+    'M33 19a8 5 0 1 1 0 10 8 5 0 1 1 0-10Z',
+  ].join(' '),
+}
 
-const mutationCallback: MutationCallback = (mutationList, observer) => {
-  for (const mutation of mutationList) {
-    if (mutation.type === 'childList' || mutation.type === 'attributes') {
-      const myPokemonNode = document.getElementById('my-pokemon-list')
-      if (myPokemonNode) {
-        const alreadyHasButtons = document.querySelector('.pokeroll-button')
-        if (!alreadyHasButtons) addInterfaceButtons()
-      }
+function createClashIcon(category: keyof typeof clashIconPaths) {
+  const ns = 'http://www.w3.org/2000/svg'
+  const icon = document.createElementNS(ns, 'svg')
+  icon.setAttribute('viewBox', '0 0 66 52')
+  icon.setAttribute('width', '22')
+  icon.setAttribute('height', '18')
+  icon.setAttribute('aria-hidden', 'true')
+  icon.setAttribute('focusable', 'false')
+  const symbol = document.createElementNS(ns, 'path')
+  symbol.setAttribute('d', clashIconPaths[category])
+  symbol.setAttribute('fill', 'currentColor')
+  symbol.setAttribute('fill-rule', 'evenodd')
+  icon.appendChild(symbol)
+  return icon
+}
+
+const maneuvers = [
+  { name: 'Physical Clash', icon: 'physical', attribute: 'strength', skill: 'clash' },
+  { name: 'Special Clash', icon: 'special', attribute: 'special', skill: 'clash' },
+  { name: 'Evade', icon: null, attribute: 'dexterity', skill: 'evasion' },
+] as const
+
+function addManeuverButtons(sheet: Element, header: Element) {
+  if (header.querySelector('.pokeroll-maneuvers')) return
+
+  const row = document.createElement('div')
+  row.className = 'pokeroll-maneuvers col-span-full flex flex-wrap gap-2 justify-center'
+  row.appendChild(createAudienceToggle())
+  for (const { name, icon, attribute, skill } of maneuvers) {
+    const button = createRollButton(name)
+    if (icon) {
+      button.classList.add('gap-2')
+      button.prepend(createClashIcon(icon))
     }
+    button.addEventListener('click', () => {
+      const attributes = getPokemonAttributes(sheet)
+      const skills = getPokemonSkills(sheet)
+      const pokemonName = getRollerName(sheet)
+      if (!attributes || !skills || !pokemonName) return
+
+      chrome.runtime.sendMessage({
+        type: 'POKEROLEDEX-MOVE',
+        isRollForGm,
+        payload: { kind: 'maneuver', pokemonName, name, pool: attributes[attribute] + skills[skill] },
+      })
+    })
+    row.appendChild(button)
+  }
+  header.appendChild(row)
+}
+
+function refreshPokemonSheets() {
+  for (const sheet of document.querySelectorAll('[data-radix-scroll-area-viewport]')) {
+    const header = getNameLabel(sheet)?.parentElement?.parentElement
+    if (!header || header.closest('[data-radix-scroll-area-viewport]') !== sheet) continue
+    if (!getParentElementFromChildLabel(sheet, 'Skills')) continue
+    addManeuverButtons(sheet, header)
+    addInterfaceButtons(sheet)
   }
 }
 
-// Create an observer instance linked to the callback function
-const observer = new MutationObserver(mutationCallback)
-
-// Start observing the target node for configured mutations
-if (websiteBody) observer.observe(websiteBody, observerConfig)
-else observer.disconnect()
+refreshPokemonSheets()
+new MutationObserver(refreshPokemonSheets).observe(document.body, { childList: true, subtree: true })

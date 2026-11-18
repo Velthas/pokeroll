@@ -24,6 +24,10 @@
     {
       "matches": ["https://app.roll20.net/*"],
       "js": ["build/roll20.js"]
+    },
+    {
+      "matches": ["https://lordcongra.github.io/poke-e-role/*"],
+      "js": ["build/poke-e-role.js"]
     }
   ]
 }
